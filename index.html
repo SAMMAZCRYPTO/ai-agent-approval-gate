@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="dark" />
+<title>Research vs Commit — AI Agent Gate</title>
+<style>
+  :root {
+    --bg: #0b1220;
+    --panel: #121a2b;
+    --line: #1e293b;
+    --blue: #38bdf8;
+    --cyan: #22d3ee;
+    --teal: #14b8a6;
+    --amber: #f59e0b;
+    --green: #34d399;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+  body {
+    background:
+      radial-gradient(1000px 500px at 10% -10%, rgba(56,189,248,.18), transparent 55%),
+      radial-gradient(800px 400px at 100% 0%, rgba(20,184,166,.14), transparent 50%),
+      var(--bg);
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 28px 18px 48px; }
+  h1 { font-size: clamp(1.35rem, 4.5vw, 1.85rem); line-height: 1.2; margin: 0 0 8px; letter-spacing: -.02em; }
+  .sub { color: var(--muted); font-size: .95rem; margin: 0 0 22px; line-height: 1.45; }
+  .card {
+    background: linear-gradient(180deg, rgba(255,255,255,.03), transparent), var(--panel);
+    border: 1px solid var(--line); border-radius: 18px; padding: 18px; margin-bottom: 14px;
+    box-shadow: 0 20px 50px rgba(0,0,0,.28);
+  }
+  .label { font-size: .72rem; text-transform: uppercase; letter-spacing: .12em; color: var(--cyan); margin-bottom: 10px; font-weight: 700; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  button {
+    appearance: none; border: 0; cursor: pointer; border-radius: 999px; padding: 12px 16px;
+    font-weight: 700; font-size: .92rem; color: #041018;
+    background: linear-gradient(135deg, var(--cyan), var(--teal));
+    box-shadow: 0 0 0 1px rgba(34,211,238,.25), 0 10px 24px rgba(20,184,166,.25);
+  }
+  button.secondary { background: transparent; color: var(--text); border: 1px solid var(--line);
+    box-shadow: none; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .pipeline { display: grid; gap: 10px; margin-top: 8px; }
+  .step {
+    display: grid; grid-template-columns: 36px 1fr auto; gap: 12px; align-items: center;
+    padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255,255,255,.02);
+    transition: border-color .25s, box-shadow .25s, transform .25s;
+  }
+  .step.active { border-color: rgba(56,189,248,.55); box-shadow: 0 0 0 1px rgba(56,189,248,.2), 0 0 28px rgba(56,189,248,.12); transform: translateY(-1px); }
+  .step.done { border-color: rgba(52,211,153,.4); }
+  .step.blocked { border-color: rgba(245,158,11,.55); box-shadow: 0 0 24px rgba(245,158,11,.12); }
+  .step.pass { border-color: rgba(52,211,153,.7); box-shadow: 0 0 28px rgba(52,211,153,.15); }
+  .dot {
+    width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+    font-size: .75rem; font-weight: 800; background: #0f172a; border: 1px solid var(--line); color: var(--muted);
+  }
+  .step.active .dot { color: #041018; background: var(--blue); border-color: transparent; }
+  .step.done .dot, .step.pass .dot { color: #041018; background: var(--green); border-color: transparent; }
+  .step.blocked .dot { color: #041018; background: var(--amber); border-color: transparent; }
+  .title { font-weight: 700; font-size: .98rem; }
+  .desc { color: var(--muted); font-size: .82rem; margin-top: 2px; }
+  .badge { font-size: .72rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+  .gate {
+    margin-top: 14px; border-radius: 16px; padding: 16px; border: 1px dashed rgba(245,158,11,.55);
+    background: rgba(245,158,11,.06); display: none;
+  }
+  .gate.show { display: block; }
+  .gate h2 { margin: 0 0 6px; font-size: 1.05rem; color: #fde68a; }
+  .gate p { margin: 0 0 12px; color: var(--muted); font-size: .9rem; line-height: 1.45; }
+  .viz {
+    height: 84px; border-radius: 14px; border: 1px solid var(--line); margin: 14px 0 4px;
+    background: #0a101c; position: relative; overflow: hidden;
+  }
+  .beam {
+    position: absolute; left: 8%; top: 50%; width: 10px; height: 10px; margin-top: -5px; border-radius: 50%;
+    background: var(--cyan); box-shadow: 0 0 18px var(--cyan); opacity: 0;
+  }
+  .beam.go { animation: travel 1.1s ease-in-out forwards; }
+  @keyframes travel {
+    0% { left: 8%; opacity: 0; }
+    15% { opacity: 1; }
+    70% { left: 62%; opacity: 1; }
+    100% { left: 78%; opacity: .35; }
+  }
+  .nodes { position: absolute; inset: 0; display: flex; justify-content: space-between; align-items: center; padding: 0 8%; pointer-events: none; }
+  .node { text-align: center; color: var(--muted); font-size: .68rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+  .node span {
+    display: grid; place-items: center; width: 42px; height: 42px; margin: 0 auto 6px; border-radius: 12px;
+    border: 1px solid var(--line); background: #111827; color: var(--blue); font-size: 1rem;
+  }
+  .gate-icon span { color: var(--amber); box-shadow: 0 0 20px rgba(245,158,11,.2); }
+  .result {
+    display: none; margin-top: 12px; padding: 14px 16px; border-radius: 14px;
+    border: 1px solid rgba(52,211,153,.45); background: rgba(52,211,153,.08);
+  }
+  .result.show { display: block; }
+  .result strong { color: var(--green); }
+  footer { margin-top: 18px; color: var(--muted); font-size: .78rem; line-height: 1.4; }
+  a { color: var(--cyan); }
+</style>
+</head>
+<body>
+  <main class="wrap">
+    <h1>AI agents research. Humans commit.</h1>
+    <p class="sub">Tap through a supply-chain style loop: the agent can gather and propose — the approval gate is where a person decides.</p>
+
+    <section class="card">
+      <div class="label">Live demo</div>
+      <div class="viz" aria-hidden="true">
+        <div class="nodes">
+          <div class="node"><span>⌕</span>Research</div>
+          <div class="node gate-icon"><span>🛡</span>Gate</div>
+          <div class="node"><span>✓</span>Commit</div>
+        </div>
+        <div class="beam" id="beam"></div>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <button id="runBtn" type="button">Run agent research</button>
+        <button id="resetBtn" class="secondary" type="button">Reset</button>
+      </div>
+
+      <div class="pipeline" id="pipeline">
+        <div class="step" data-step="1"><div class="dot">1</div><div><div class="title">Pull signals</div><div class="desc">Lead times, docs, supplier notes — read-only.</div></div><div class="badge">Agent</div></div>
+        <div class="step" data-step="2"><div class="dot">2</div><div><div class="title">Draft options</div><div class="desc">Compare paths. Flag uncertainty. No PO yet.</div></div><div class="badge">Agent</div></div>
+        <div class="step" data-step="3"><div class="dot">3</div><div><div class="title">Approval gate</div><div class="desc">Job charter: research OK · commit needs a human.</div></div><div class="badge">Gate</div></div>
+        <div class="step" data-step="4"><div class="dot">4</div><div><div class="title">Commit</div><div class="desc">Only after approval: message, buy, schedule change.</div></div><div class="badge">Human</div></div>
+      </div>
+
+      <div class="gate" id="gate">
+        <h2>Human approval required</h2>
+        <p>Agent recommendation: expedite dual-source for a critical-path spare. Risk: schedule slip if single-sourced. This action would <em>commit</em> — not just research.</p>
+        <div class="row">
+          <button id="approveBtn" type="button">Approve commit</button>
+          <button id="rejectBtn" class="secondary" type="button">Keep as research only</button>
+        </div>
+      </div>
+
+      <div class="result" id="result"></div>
+    </section>
+
+    <footer>
+      Free single-file demo — host on GitHub Pages or Netlify Drop. No tracking. No employer branding.
+    </footer>
+  </main>
+<script>
+(function () {
+  const steps = [...document.querySelectorAll('.step')];
+  const gate = document.getElementById('gate');
+  const result = document.getElementById('result');
+  const runBtn = document.getElementById('runBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const approveBtn = document.getElementById('approveBtn');
+  const rejectBtn = document.getElementById('rejectBtn');
+  const beam = document.getElementById('beam');
+  let timer;
+
+  function clear() {
+    clearTimeout(timer);
+    steps.forEach(s => s.classList.remove('active', 'done', 'blocked', 'pass'));
+    gate.classList.remove('show');
+    result.classList.remove('show');
+    result.innerHTML = '';
+    runBtn.disabled = false;
+    beam.classList.remove('go');
+    void beam.offsetWidth;
+  }
+
+  function setState(n, cls) {
+    steps.forEach(s => {
+      const id = +s.dataset.step;
+      s.classList.remove('active', 'blocked', 'pass');
+      if (id < n) { s.classList.add('done'); }
+      else if (id === n) { s.classList.add(cls || 'active'); }
+      else { s.classList.remove('done'); }
+    });
+  }
+
+  function run() {
+    clear();
+    runBtn.disabled = true;
+    beam.classList.add('go');
+    setState(1);
+    timer = setTimeout(() => {
+      setState(2);
+      timer = setTimeout(() => {
+        setState(3, 'blocked');
+        gate.classList.add('show');
+        gate.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 900);
+    }, 900);
+  }
+
+  approveBtn.addEventListener('click', () => {
+    setState(4, 'pass');
+    steps[2].classList.remove('blocked');
+    steps[2].classList.add('done');
+    gate.classList.remove('show');
+    result.classList.add('show');
+    result.innerHTML = '<strong>Committed.</strong> Human approved at the gate. Agent may execute the next action under the job charter.';
+    runBtn.disabled = false;
+  });
+
+  rejectBtn.addEventListener('click', () => {
+    setState(3, 'blocked');
+    steps[3].classList.remove('done', 'pass', 'active');
+    gate.classList.remove('show');
+    result.classList.add('show');
+    result.innerHTML = '<strong>Research only.</strong> No commit. The agent can keep gathering — a person still owns the decision.';
+    result.style.borderColor = 'rgba(245,158,11,.45)';
+    result.style.background = 'rgba(245,158,11,.08)';
+    runBtn.disabled = false;
+  });
+
+  runBtn.addEventListener('click', run);
+  resetBtn.addEventListener('click', () => {
+    result.style.borderColor = '';
+    result.style.background = '';
+    clear();
+  });
+})();
+</script>
+</body>
+</html>
